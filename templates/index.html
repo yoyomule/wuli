@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>凸透镜成像演示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 20px 0;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: bold;
+            color: #333;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        input[type="number"] {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .unit {
+            color: #666;
+            margin-left: 5px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>凸透镜成像演示</h1>
+        
+        <canvas id="lensCanvas" width="1000" height="500"></canvas>
+        
+        <div class="controls">
+            <label for="focal">焦距 (f):</label>
+            <input type="range" id="focal" min="3" max="15" value="6" step="0.1">
+            <input type="number" id="focalValue" value="6" min="3" max="15" step="0.1">
+            <span class="unit">cm</span>
+        </div>
+        
+        <div class="controls">
+            <label for="distance">物距 (u):</label>
+            <input type="range" id="distance" min="3" max="30" value="15" step="0.1">
+            <input type="number" id="distanceValue" value="15" min="3" max="30" step="0.1">
+            <span class="unit">cm</span>
+        </div>
+        
+        <div class="controls">
+            <label for="height">物高 (h):</label>
+            <input type="range" id="height" min="1" max="10" value="5" step="0.1">
+            <input type="number" id="heightValue" value="5" min="1" max="10" step="0.1">
+            <span class="unit">cm</span>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        const SCALE = 20; // 像素/厘米
+        const canvas = document.getElementById('lensCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+        const lens_x = WIDTH * 0.6;
+
+        // 绑定滑块和数值输入框
+        function bindInputs(rangeName) {
+            const range = document.getElementById(rangeName);
+            const value = document.getElementById(rangeName + 'Value');
+            
+            range.addEventListener('input', () => {
+                value.value = range.value;
+                updateCanvas();
+            });
+            
+            value.addEventListener('input', () => {
+                if (value.value >= value.min && value.value <= value.max) {
+                    range.value = value.value;
+                    updateCanvas();
+                }
+            });
+        }
+
+        bindInputs('focal');
+        bindInputs('distance');
+        bindInputs('height');
+
+        function drawLens() {
+            // 绘制主光轴
+            ctx.beginPath();
+            ctx.strokeStyle = 'black';
+            ctx.moveTo(0, HEIGHT/2);
+            ctx.lineTo(WIDTH, HEIGHT/2);
+            ctx.stroke();
+
+            // 绘制透镜
+            const lensHeight = 300;
+            const curveWidth = 30;
+            
+            // 绘制透镜轮廓
+            ctx.beginPath();
+            ctx.strokeStyle = 'black';
+            
+            // 左曲面
+            ctx.moveTo(lens_x - curveWidth, HEIGHT/2 - lensHeight/2);
+            ctx.quadraticCurveTo(lens_x, HEIGHT/2, lens_x - curveWidth, HEIGHT/2 + lensHeight/2);
+            
+            // 右曲面
+            ctx.moveTo(lens_x + curveWidth, HEIGHT/2 - lensHeight/2);
+            ctx.quadraticCurveTo(lens_x, HEIGHT/2, lens_x + curveWidth, HEIGHT/2 + lensHeight/2);
+            
+            ctx.stroke();
+
+            // 填充透镜
+            ctx.fillStyle = 'rgba(200, 200, 255, 0.2)';
+            ctx.fillRect(lens_x - curveWidth, HEIGHT/2 - lensHeight/2, curveWidth * 2, lensHeight);
+        }
+
+        function drawArrow(x, y, height, color, isInverted = false) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            if (!isInverted) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y - height);
+                
+                // 箭头
+                ctx.moveTo(x - 10, y - height + 20);
+                ctx.lineTo(x, y - height);
+                ctx.lineTo(x + 10, y - height + 20);
+            } else {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + height);
+                
+                // 箭头
+                ctx.moveTo(x - 10, y + height - 20);
+                ctx.lineTo(x, y + height);
+                ctx.lineTo(x + 10, y + height - 20);
+            }
+            
+            ctx.stroke();
+        }
+
+        function drawDashedLine(startX, startY, endX, endY, color) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function updateCanvas() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            
+            const focal_length = parseFloat(document.getElementById('focal').value);
+            const object_distance = parseFloat(document.getElementById('distance').value);
+            const object_height = parseFloat(document.getElementById('height').value);
+            
+            drawLens();
+            
+            // 绘制焦点
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(lens_x - focal_length * SCALE, HEIGHT/2, 4, 0, Math.PI * 2);
+            ctx.arc(lens_x + focal_length * SCALE, HEIGHT/2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制2F点
+            ctx.beginPath();
+            ctx.arc(lens_x - 2 * focal_length * SCALE, HEIGHT/2, 4, 0, Math.PI * 2);
+            ctx.arc(lens_x + 2 * focal_length * SCALE, HEIGHT/2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制F和2F标记
+            ctx.fillStyle = 'red';
+            ctx.font = '20px Arial';
+            ctx.fillText('F', lens_x - focal_length * SCALE - 15, HEIGHT/2 + 25);
+            ctx.fillText('2F', lens_x - 2 * focal_length * SCALE - 20, HEIGHT/2 + 25);
+            ctx.fillText('F', lens_x + focal_length * SCALE - 15, HEIGHT/2 + 25);
+            ctx.fillText('2F', lens_x + 2 * focal_length * SCALE - 20, HEIGHT/2 + 25);
+            
+            // 绘制物体
+            const object_x = lens_x - object_distance * SCALE;
+            const object_y = HEIGHT/2;
+            drawArrow(object_x, object_y, object_height * SCALE, 'blue');
+            
+            // 计算像
+            if (object_distance !== focal_length) {
+                const image_distance = (focal_length * object_distance) / (object_distance - focal_length);
+                const image_height = -(image_distance * object_height) / object_distance;
+                const image_x = lens_x + image_distance * SCALE;
+                const image_y = HEIGHT/2;
+                
+                // 绘制成像
+                if (object_distance > focal_length) {
+                    // 实像
+                    drawArrow(image_x, image_y, Math.abs(image_height) * SCALE, 'red', true);
+                    
+                    // 绘制光线
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 1;
+                    
+                    // 1. 平行光线
+                    ctx.moveTo(object_x, object_y - object_height * SCALE);
+                    ctx.lineTo(lens_x, object_y - object_height * SCALE);
+                    ctx.lineTo(image_x, image_y + image_height * SCALE);
+                    
+                    // 2. 通过焦点的光线
+                    ctx.moveTo(object_x, object_y - object_height * SCALE);
+                    ctx.lineTo(lens_x, HEIGHT/2);
+                    ctx.lineTo(image_x, image_y + image_height * SCALE);
+                    
+                    // 3. 通过光心的光线
+                    ctx.moveTo(object_x, object_y - object_height * SCALE);
+                    ctx.lineTo(image_x, image_y + image_height * SCALE);
+                    
+                    ctx.stroke();
+                } else {
+                    // 虚像
+                    drawArrow(image_x, image_y, Math.abs(image_height) * SCALE, 'red', false);
+                    
+                    // 绘制光线和延长线
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 1;
+                    
+                    // 1. 平行光线
+                    ctx.moveTo(object_x, object_y - object_height * SCALE);
+                    ctx.lineTo(lens_x, object_y - object_height * SCALE);
+                    const slope1 = (HEIGHT/2 - (object_y - object_height * SCALE)) / focal_length;
+                    ctx.lineTo(lens_x + focal_length * SCALE, HEIGHT/2);
+                    drawDashedLine(lens_x, object_y - object_height * SCALE, image_x, image_y - image_height * SCALE, 'red');
+                    
+                    // 2. 通过焦点的光线
+                    ctx.moveTo(object_x, object_y - object_height * SCALE);
+                    ctx.lineTo(lens_x, HEIGHT/2);
+                    ctx.lineTo(lens_x + WIDTH/4, HEIGHT/2);
+                    drawDashedLine(lens_x, HEIGHT/2, image_x, image_y - image_height * SCALE, 'red');
+                    
+                    // 3. 通过光心的光线
+                    ctx.moveTo(object_x, object_y - object_height * SCALE);
+                    ctx.lineTo(lens_x, HEIGHT/2);
+                    drawDashedLine(lens_x, HEIGHT/2, image_x, image_y - image_height * SCALE, 'red');
+                    
+                    ctx.stroke();
+                }
+                
+                // 显示计算结果
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <strong>计算结果：</strong><br>
+                    像距 (v): ${Math.abs(image_distance).toFixed(1)} cm<br>
+                    像高 (h'): ${Math.abs(image_height).toFixed(1)} cm<br>
+                    成像特点：${object_distance > focal_length ? '实像，倒立' : '虚像，正立'}
+                `;
+            } else {
+                // 当物距等于焦距时
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = '<strong>特殊情况：</strong><br>当物距等于焦距时，像在无穷远处';
+            }
+        }
+
+        // 初始绘制
+        updateCanvas();
+    </script>
+</body>
+</html> 
